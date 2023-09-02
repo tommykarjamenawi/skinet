@@ -1,3 +1,4 @@
+using Core.Interfaces;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,8 @@ builder.Services.AddDbContext<StoreContext>(opt => {
     opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
+builder.Services.AddScoped<IProductRepository, ProductRepository>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -27,5 +30,20 @@ if (app.Environment.IsDevelopment())
 app.UseAuthorization();
 
 app.MapControllers();
+
+using var scope = app.Services.CreateScope(); //  Creating a scope for the lifetime of the application
+var services = scope.ServiceProvider; //  Getting the services from the scope
+var context = services.GetRequiredService<StoreContext>(); //  Getting the StoreContext from the services
+var logger = services.GetRequiredService<ILogger<Program>>(); //  Getting the logger from the services
+
+try
+{
+    await context.Database.MigrateAsync(); //  Migrating the database
+    await StoreContextSeed.SeedAsync(context); //  Seeding the database
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, "An error occurred during migration");
+}
 
 app.Run();
